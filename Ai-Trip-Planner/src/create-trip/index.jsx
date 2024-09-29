@@ -2,23 +2,85 @@ import React, { useEffect } from "react";
 import { useState } from "react";
 import GooglePlacesAutocomplete from "react-google-places-autocomplete";
 import { Input } from "@/components/ui/input";
-import { SelecetBudgetOptions, SelectTravelsList } from "@/constants/Options";
+import { AI_PROMT, SelecetBudgetOptions, SelectTravelsList } from "@/constants/Options";
+import { toast } from "sonner";
+import { chatSession } from "@/service/AIModal";
+import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import { useGoogleLogin } from "@react-oauth/google";
+import axios from "axios";
+
 
 function CreateTrip() {
 
-  const[formData,setFormData] = useState([]);
-  
-  const handleSubmit = (name,value) => {
+  const [formData, setFormData] = useState([]);
+  const [openDialog, setOpenDialog] = useState(false);
+  const handleSubmit = (name, value) => {
     setFormData({
       ...formData,
-      [name] : value
+      [name]: value
     }
     )
   }
 
-  useEffect(()=>{
+  useEffect(() => {
     console.log(formData)
-  },[formData])
+  }, [formData])
+
+  const login = useGoogleLogin({
+    onSuccess: (codeResp) => GetUserProfile(codeResp),
+    onError: (error) => console.log(error)
+  })
+
+  const OnGenerateTrip = async () => {
+
+    const user = localStorage.getItem('user');
+    if (!user) {
+      setOpenDialog(true)
+      return;
+    }
+
+    if (formData?.noOfDays > 10  && !formData?.location || !formData?.budget || !formData?.traveler) {
+      toast("Please fill the form properly...")
+      return
+    }
+    const FINAL_PROMPT = AI_PROMT
+      .replace('{totalDays}', formData?.noOfDays)
+      .replace('{traveler}', formData?.traveler)
+      .replace('{budget}', formData?.budget)
+
+    console.log(FINAL_PROMPT)
+    console.log("generating....")
+
+    const result = await chatSession.sendMessage(FINAL_PROMPT);
+    console.log(result?.response?.text())
+
+  }
+
+  const GetUserProfile = (tokenInfo) => {
+    axios.get(`https://www.googleapis.com/oauth2/v1/userinfo?access_token=${tokenInfo?.access_token}`,{
+      headers: {
+        Authorization: `Bearer ${tokenInfo?.access_token}`,
+        Accept: 'Application/json'
+      }
+    }).then((resp) => {
+      console.log(resp);
+      localStorage.setItem('user', JSON.stringify(resp.data))
+      setOpenDialog(false)
+      OnGenerateTrip()
+    }).catch((error)=>{
+      console.log("Some error has occured while axios fetch",error)
+    })
+    
+  }
 
   return (
     <div className="sm:px-10 md:px-32 lg:px-36 xl:px-72 px-5 mt-10">
@@ -40,21 +102,21 @@ function CreateTrip() {
             How many days do you want to Travel ?
           </h2>
           <Input className="mt-5" placeholder="Ex. 3" type="number"
-          onChange={(e)=>{
-            handleSubmit('noOfDays',e.target.value)
-          }}
+            onChange={(e) => {
+              handleSubmit('noOfDays', e.target.value)
+            }}
           ></Input>
         </div>
         <div>
           <h2 className="text-xl font-semibold">What is your budget ?</h2>
           <div className="grid grid-cols-3 gap-5">
-            {SelecetBudgetOptions.map((item,index)=>(
+            {SelecetBudgetOptions.map((item, index) => (
               <div key={index} className={`p-4 border rounded-md hover:shadow-lg
-                ${formData?.budget==item.title && 'border-black bg-green-200'}
+                ${formData?.budget == item.title && 'border-black bg-green-200'}
                 `}
-              onClick={()=>{
-                handleSubmit('budget',item.title)
-              }}
+                onClick={() => {
+                  handleSubmit('budget', item.title)
+                }}
               >
                 <h2 className="text-4xl">{item.icon}</h2>
                 <h2 className="font-bold text-lg">{item.title}</h2>
@@ -66,13 +128,13 @@ function CreateTrip() {
         <div>
           <h2 className="text-xl font-semibold">Whom with you planning to travel ?</h2>
           <div className="grid grid-cols-3 gap-5">
-            {SelectTravelsList.map((item,index)=>(
+            {SelectTravelsList.map((item, index) => (
               <div key={index} className={`p-4 border rounded-md hover:shadow-lg
-                ${formData?.travel==item.title && 'border-black bg-green-200'}
+                ${formData?.traveler == item.title && 'border-black bg-green-200'}
                 `}
-              onClick={()=>{
-                handleSubmit('travel',item.title)
-              }}
+                onClick={() => {
+                  handleSubmit('traveler', item.title)
+                }}
               >
                 <h2 className="text-4xl">{item.icon}</h2>
                 <h2 className="font-bold text-lg">{item.title}</h2>
@@ -81,9 +143,28 @@ function CreateTrip() {
             ))}
           </div>
         </div>
+
         <div className="flex justify-end mb-10">
-          <button className="text-white">Generate Trip</button>
+          <button className="text-white" onClick={OnGenerateTrip}>Generate Trip</button>
         </div>
+
+        <Dialog open={openDialog} onOpenChange={setOpenDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Sign in required</DialogTitle>
+              <DialogDescription>
+                Use your gmail account to Sign in
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button
+                onClick={login}
+              >Sign In</Button>
+              {/* <Button variant="secondary" onClick={() => setOpenDialog(false)}>Close</Button> */}
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
       </div>
     </div>
   );
