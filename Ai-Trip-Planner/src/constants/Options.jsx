@@ -2,21 +2,21 @@ export const SelectTravelsList=[
     {
         id  : 1,
         title:'Just me',
-        desc:'A lonewolf',
+        desc:'A Solo traveler',
         icon:'',
         people:1
     },
     {
         id  : 2,
         title:'Couple',
-        desc:'xyz',
+        desc:'2 people',
         icon:'',
         people:2
     },
     {
         id  : 3,
         title:'With family',
-        desc:'Fame',
+        desc:'4-5 people',
         icon:'',
         people:'3 to 5 people'
     }
